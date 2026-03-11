@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* RescueNet - Professional Emergency Management Dashboard */
+    
+    /* Primary: #2563EB - Blue for trust and safety */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 70%;
+    
+    /* Secondary: #0EA5E9 - Sky Blue */
+    --secondary: 199 89% 48%;
+    --secondary-foreground: 0 0% 100%;
+    
+    /* Accent for interactive elements */
+    --accent: 217 91% 97%;
+    --accent-foreground: 217 91% 35%;
+    
+    /* Alert Colors */
+    --alert-emergency: 0 84% 60%;
+    --alert-warning: 24 95% 53%;
+    --alert-safe: 142 76% 36%;
+    
+    /* Backgrounds */
+    --background: 220 14% 96%;
+    --foreground: 224 71% 4%;
+    
+    /* Cards */
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    
+    /* Muted */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border & Input */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+    
+    /* Chart Colors */
+    --chart-1: 217 91% 60%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 142 76% 36%;
+    --chart-4: 24 95% 53%;
+    --chart-5: 0 84% 60%;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 220 14% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 220 14% 96%;
+    --sidebar-border: 217 33% 20%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Fonts */
+    --font-sans: DM Sans, sans-serif;
+    --font-heading: Manrope, sans-serif;
+    --font-mono: IBM Plex Mono, monospace;
+
+    /* Radius */
+    --radius: 0.625rem;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.07), 0 2px 4px -2px hsl(0 0% 0% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.08), 0 4px 6px -4px hsl(0 0% 0% / 0.05);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.1), 0 8px 10px -6px hsl(0 0% 0% / 0.05);
+    
+    /* Elevation for cards */
+    --elevation-1: 0 1px 3px hsl(217 91% 60% / 0.08), 0 1px 2px hsl(0 0% 0% / 0.04);
+    --elevation-2: 0 4px 6px hsl(217 91% 60% / 0.1), 0 2px 4px hsl(0 0% 0% / 0.06);
+    --elevation-3: 0 10px 20px hsl(217 91% 60% / 0.12), 0 3px 6px hsl(0 0% 0% / 0.08);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+  }
+}
+
+/* Custom Utility Classes */
+@layer utilities {
+  .elevation-1 {
+    box-shadow: var(--elevation-1);
+  }
+  
+  .elevation-2 {
+    box-shadow: var(--elevation-2);
+  }
+  
+  .elevation-3 {
+    box-shadow: var(--elevation-3);
+  }
+  
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+  }
+  
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.4s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out both;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
