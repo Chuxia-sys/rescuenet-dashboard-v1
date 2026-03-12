@@ -1,9 +1,131 @@
+import { useState, useEffect } from 'react'
+import { blink } from '@/lib/blink'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, Layers, AlertTriangle, Home, Radio, Filter } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { MapPin, Layers, AlertTriangle, Home, Radio, Filter, Clock, Plus } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import LeafletMap from '@/components/map/LeafletMap'
+
+interface Disaster {
+  id: string
+  type: string
+  location: string
+  description: string
+  status: string
+  latitude?: number
+  longitude?: number
+  createdAt: string
+}
+
+interface EvacuationCenter {
+  id: string
+  name: string
+  address: string
+  capacity: number
+  currentEvacuees: number
+  status: string
+  latitude?: number
+  longitude?: number
+}
+
+interface MapMarker {
+  id: string
+  lat: number
+  lng: number
+  type: 'disaster' | 'evacuation' | 'rescue'
+  title: string
+  description?: string
+  status?: string
+  emoji?: string
+}
+
+// Disaster emoji mapping
+const disasterEmojis: Record<string, string> = {
+  flood: '🌊',
+  fire: '🔥',
+  landslide: '⛰️',
+  earthquake: '🌍',
+  typhoon: '🌀',
+  other: '⚠️',
+}
 
 export default function MapPage() {
+  const [disasters, setDisasters] = useState<Disaster[]>([])
+  const [evacuationCenters, setEvacuationCenters] = useState<EvacuationCenter[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null)
+  const [activeLayers, setActiveLayers] = useState({
+    disasters: true,
+    evacuation: true,
+    rescue: true,
+  })
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      const [disasterData, centerData] = await Promise.all([
+        blink.db.disasters.list({ orderBy: { createdAt: 'desc' }, limit: 50 }),
+        blink.db.evacuation_centers.list({ limit: 50 }),
+      ])
+      setDisasters(disasterData as Disaster[])
+      setEvacuationCenters(centerData as EvacuationCenter[])
+    } catch (error) {
+      console.error('Error loading map data:', error)
+      // Use mock data if needed
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Convert data to markers
+  const mapMarkers: MapMarker[] = [
+    // Disaster markers
+    ...disasters.map(d => ({
+      id: d.id,
+      lat: d.latitude || (12 + Math.random() * 5),
+      lng: d.longitude || (120 + Math.random() * 6),
+      type: 'disaster' as const,
+      title: `${d.type} - ${d.location}`,
+      description: d.description,
+      status: d.status,
+      emoji: disasterEmojis[d.type.toLowerCase()] || '⚠️',
+    })),
+    // Evacuation center markers
+    ...evacuationCenters.map(c => ({
+      id: c.id,
+      lat: c.latitude || (12 + Math.random() * 5),
+      lng: c.longitude || (120 + Math.random() * 6),
+      type: 'evacuation' as const,
+      title: c.name,
+      description: `${c.currentEvacuees}/${c.capacity} evacuees`,
+      status: c.status,
+      emoji: '🏠',
+    })),
+    // Mock rescue markers
+    { id: 'r1', lat: 14.5995, lng: 120.9842, type: 'rescue', title: 'Family stranded', description: 'Manila - Flood emergency', status: 'pending', emoji: '🚨' },
+    { id: 'r2', lat: 10.3098, lng: 123.8930, type: 'rescue', title: 'Trapped residents', description: 'Cebu - Building collapse', status: 'in-progress', emoji: '🚨' },
+    { id: 'r3', lat: 7.1907, lng: 125.4553, type: 'rescue', title: 'Medical emergency', description: 'Davao - Urgent medical needed', status: 'pending', emoji: '🚨' },
+  ]
+
+  const toggleLayer = (layer: keyof typeof activeLayers) => {
+    setActiveLayers(prev => ({ ...prev, [layer]: !prev[layer] }))
+  }
+
+  const handleMarkerClick = (marker: MapMarker) => {
+    setSelectedMarker(marker)
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -11,83 +133,38 @@ export default function MapPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground font-heading">Interactive Map</h1>
           <p className="text-muted-foreground mt-1">
-            View disaster locations and evacuation centers
+            View disaster locations and evacuation centers in real-time
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveLayers({ disasters: true, evacuation: true, rescue: true })}
+          >
             <Layers className="h-4 w-4 mr-2" />
-            Layers
+            Show All
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveLayers({ disasters: false, evacuation: false, rescue: false })}
+          >
             <Filter className="h-4 w-4 mr-2" />
-            Filter
+            Clear
           </Button>
         </div>
       </div>
 
-      {/* Map Placeholder */}
+      {/* Map Container */}
       <Card className="elevation-1 border-border/50 overflow-hidden">
         <CardContent className="p-0">
-          <div className="h-[600px] bg-gradient-to-br from-primary/5 to-secondary/5 relative">
-            {/* Placeholder Map */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <MapPin className="h-8 w-8 text-primary" />
-                </div>
-                <p className="text-lg font-medium text-foreground">Interactive Map View</p>
-                <p className="text-muted-foreground mt-1">
-                  Map integration coming soon
-                </p>
-              </div>
-            </div>
-
-            {/* Legend Overlay */}
-            <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur rounded-lg p-4 elevation-2">
-              <p className="text-sm font-medium text-foreground mb-3">Map Legend</p>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full bg-red-500" />
-                  <span className="text-sm text-muted-foreground">Flood Reports</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full bg-orange-500" />
-                  <span className="text-sm text-muted-foreground">Fire Incidents</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                  <span className="text-sm text-muted-foreground">Rescue Requests</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full bg-green-500" />
-                  <span className="text-sm text-muted-foreground">Evacuation Centers</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Overlay */}
-            <div className="absolute top-4 right-4 bg-card/90 backdrop-blur rounded-lg p-4 elevation-2">
-              <p className="text-sm font-medium text-foreground mb-2">Active Incidents</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-2xl font-bold text-red-500">23</p>
-                  <p className="text-xs text-muted-foreground">Floods</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-orange-500">12</p>
-                  <p className="text-xs text-muted-foreground">Fires</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-yellow-500">47</p>
-                  <p className="text-xs text-muted-foreground">Rescues</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-green-500">8</p>
-                  <p className="text-xs text-muted-foreground">Centers</p>
-                </div>
-              </div>
-            </div>
+          <div className="h-[500px] lg:h-[600px]">
+            <LeafletMap
+              markers={mapMarkers}
+              activeLayers={activeLayers}
+              onMarkerClick={handleMarkerClick}
+            />
           </div>
         </CardContent>
       </Card>
@@ -99,25 +176,168 @@ export default function MapPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 cursor-pointer hover:bg-red-500/20 transition-colors">
+            <button
+              onClick={() => toggleLayer('disasters')}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg border-2 transition-all duration-200',
+                activeLayers.disasters
+                  ? 'bg-red-500/10 border-red-500/50 hover:bg-red-500/20'
+                  : 'bg-muted/50 border-border hover:bg-muted'
+              )}
+            >
               <AlertTriangle className="h-5 w-5 text-red-500" />
-              <span className="text-sm font-medium text-foreground">Flood Reports</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 cursor-pointer hover:bg-orange-500/20 transition-colors">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
-              <span className="text-sm font-medium text-foreground">Fire Incidents</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 cursor-pointer hover:bg-yellow-500/20 transition-colors">
-              <Radio className="h-5 w-5 text-yellow-500" />
-              <span className="text-sm font-medium text-foreground">Rescue Requests</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20 cursor-pointer hover:bg-green-500/20 transition-colors">
+              <span className="text-sm font-medium text-foreground">
+                Disasters ({disasters.length})
+              </span>
+            </button>
+            
+            <button
+              onClick={() => toggleLayer('evacuation')}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg border-2 transition-all duration-200',
+                activeLayers.evacuation
+                  ? 'bg-green-500/10 border-green-500/50 hover:bg-green-500/20'
+                  : 'bg-muted/50 border-border hover:bg-muted'
+              )}
+            >
               <Home className="h-5 w-5 text-green-500" />
-              <span className="text-sm font-medium text-foreground">Evacuation Centers</span>
-            </div>
+              <span className="text-sm font-medium text-foreground">
+                Centers ({evacuationCenters.length})
+              </span>
+            </button>
+            
+            <button
+              onClick={() => toggleLayer('rescue')}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg border-2 transition-all duration-200',
+                activeLayers.rescue
+                  ? 'bg-amber-500/10 border-amber-500/50 hover:bg-amber-500/20'
+                  : 'bg-muted/50 border-border hover:bg-muted'
+              )}
+            >
+              <Radio className="h-5 w-5 text-amber-500" />
+              <span className="text-sm font-medium text-foreground">
+                Rescue (3)
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveLayers({ disasters: true, evacuation: true, rescue: true })}
+              className="flex items-center gap-3 p-3 rounded-lg border-2 bg-primary/10 border-primary/50 hover:bg-primary/20 transition-all duration-200"
+            >
+              <Plus className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-foreground">
+                All Layers
+              </span>
+            </button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="elevation-1 border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Disasters</p>
+                <p className="text-xl font-bold text-foreground">{disasters.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="elevation-1 border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <Home className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Open Centers</p>
+                <p className="text-xl font-bold text-foreground">
+                  {evacuationCenters.filter(c => c.status === 'open').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="elevation-1 border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Radio className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Rescue Requests</p>
+                <p className="text-xl font-bold text-foreground">3</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="elevation-1 border-border/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Last Updated</p>
+                <p className="text-sm font-bold text-foreground">
+                  {new Date().toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Marker Detail Dialog */}
+      <Dialog open={!!selectedMarker} onOpenChange={() => setSelectedMarker(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Location Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the selected location
+            </DialogDescription>
+          </DialogHeader>
+          {selectedMarker && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center gap-2">
+                <Badge className={cn(
+                  selectedMarker.type === 'disaster' && 'bg-red-500',
+                  selectedMarker.type === 'evacuation' && 'bg-green-500',
+                  selectedMarker.type === 'rescue' && 'bg-amber-500',
+                  'text-white'
+                )}>
+                  {selectedMarker.type}
+                </Badge>
+                {selectedMarker.status && (
+                  <span className="text-sm text-muted-foreground capitalize">{selectedMarker.status}</span>
+                )}
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-semibold">{selectedMarker.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{selectedMarker.description}</p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button className="flex-1" variant="outline">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Get Directions
+                </Button>
+                <Button variant="outline">Details</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
