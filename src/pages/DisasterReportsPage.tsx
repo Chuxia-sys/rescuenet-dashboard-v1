@@ -69,6 +69,8 @@ export default function DisasterReportsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedDisaster, setSelectedDisaster] = useState<Disaster | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -193,6 +195,19 @@ export default function DisasterReportsPage() {
     return found?.icon || '⚠️'
   }
 
+  const updateDisasterStatus = async (id: string, status: string) => {
+    try {
+      await blink.db.disasters.update(id, { status, updatedAt: new Date().toISOString() })
+      setDisasters(prev => prev.map(d => d.id === id ? { ...d, status } : d))
+      if (selectedDisaster?.id === id) {
+        setSelectedDisaster(prev => prev ? { ...prev, status } : null)
+      }
+      toast.success(`Status updated to ${status}`)
+    } catch (error) {
+      toast.error('Failed to update status')
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -295,45 +310,59 @@ export default function DisasterReportsPage() {
           {filteredDisasters.map((disaster) => (
             <Card
               key={disaster.id}
-              className="elevation-1 border-border/50 hover:elevation-2 transition-all duration-200 cursor-pointer"
+              className="elevation-1 border-border/50 hover:elevation-2 transition-all duration-200 cursor-pointer overflow-hidden group"
+              onClick={() => {
+                setSelectedDisaster(disaster)
+                setIsDetailOpen(true)
+              }}
             >
-              <CardContent className="p-4">
+              <CardContent className="p-0">
                 {/* Image */}
-                {disaster.image && (
-                  <div className="aspect-video rounded-lg overflow-hidden mb-4 bg-muted">
+                {disaster.image ? (
+                  <div className="aspect-video overflow-hidden bg-muted">
                     <img
                       src={disaster.image}
                       alt={disaster.type}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
+                  </div>
+                ) : (
+                  <div className="aspect-video flex flex-col items-center justify-center bg-muted/30 text-muted-foreground/50">
+                    <ImageIcon className="h-10 w-10 mb-2" />
+                    <span className="text-xs">No image provided</span>
                   </div>
                 )}
                 
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{getDisasterIcon(disaster.type)}</span>
-                    <div>
-                      <h3 className="font-medium text-foreground capitalize">{disaster.type}</h3>
-                      <Badge className={`${getStatusColor(disaster.status)} text-xs mt-1`}>
-                        {disaster.status}
-                      </Badge>
+                <div className="p-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{getDisasterIcon(disaster.type)}</span>
+                      <div>
+                        <h3 className="font-semibold text-foreground capitalize truncate max-w-[150px]">{disaster.type}</h3>
+                        <Badge className={`${getStatusColor(disaster.status)} text-[10px] h-5`}>
+                          {disaster.status}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Details */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span className="truncate">{disaster.location}</span>
-                  </div>
-                  <p className="text-sm text-foreground/80 line-clamp-2">
-                    {disaster.description}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
-                    <Clock className="h-3 w-3" />
-                    <span>{new Date(disaster.createdAt).toLocaleString()}</span>
+                  {/* Details */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{disaster.location}</span>
+                    </div>
+                    <p className="text-sm text-foreground/80 line-clamp-2 min-h-[40px]">
+                      {disaster.description}
+                    </p>
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{new Date(disaster.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <span className="text-[10px] font-medium text-primary group-hover:underline">View details →</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -341,6 +370,120 @@ export default function DisasterReportsPage() {
           ))}
         </div>
       )}
+
+      {/* Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
+          {selectedDisaster && (
+            <div className="flex flex-col">
+              {selectedDisaster.image && (
+                <div className="aspect-video w-full overflow-hidden bg-muted">
+                  <img
+                    src={selectedDisaster.image}
+                    alt={selectedDisaster.type}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center text-3xl">
+                      {getDisasterIcon(selectedDisaster.type)}
+                    </div>
+                    <div>
+                      <DialogTitle className="text-2xl font-bold capitalize">
+                        {selectedDisaster.type} Incident
+                      </DialogTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className={getStatusColor(selectedDisaster.status)}>
+                          {selectedDisaster.status}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          Reported {new Date(selectedDisaster.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedDisaster.status !== 'resolved' && (
+                      <Button 
+                        size="sm" 
+                        className="bg-alert-safe hover:bg-alert-safe/90"
+                        onClick={() => updateDisasterStatus(selectedDisaster.id, 'resolved')}
+                      >
+                        Mark Resolved
+                      </Button>
+                    )}
+                    <Button 
+                      size="sm" 
+                      variant="destructive"
+                      onClick={async () => {
+                        if (confirm('Are you sure you want to delete this report?')) {
+                          await blink.db.disasters.delete(selectedDisaster.id)
+                          setDisasters(prev => prev.filter(d => d.id !== selectedDisaster.id))
+                          setIsDetailOpen(false)
+                          toast.success('Report deleted')
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground mb-1 uppercase tracking-wider">Description</h4>
+                      <p className="text-foreground/80 leading-relaxed">
+                        {selectedDisaster.description}
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-muted/30 border border-border space-y-3">
+                      <div className="flex items-center gap-3 text-sm">
+                        <MapPin className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="font-medium">Location</p>
+                          <p className="text-muted-foreground">{selectedDisaster.location}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <AlertTriangle className="h-4 w-4 text-alert-warning" />
+                        <div>
+                          <p className="font-medium">Incident Severity</p>
+                          <p className="text-muted-foreground">Medium (Verified)</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg border border-border">
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        Update Status
+                      </h4>
+                      <div className="space-y-2">
+                        {['pending', 'verified', 'active', 'resolved'].map((s) => (
+                          <Button
+                            key={s}
+                            variant={selectedDisaster.status === s ? 'default' : 'outline'}
+                            size="sm"
+                            className="w-full justify-start capitalize"
+                            onClick={() => updateDisasterStatus(selectedDisaster.id, s)}
+                          >
+                            {s}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Report Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

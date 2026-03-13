@@ -28,6 +28,7 @@ interface Alert {
   title: string
   message: string
   severity: 'emergency' | 'warning' | 'info'
+  status: 'active' | 'resolved'
   targetArea?: string
   createdAt: string
 }
@@ -74,6 +75,7 @@ export default function AlertsPage() {
         title: formData.title,
         message: formData.message,
         severity: formData.severity,
+        status: 'active',
         targetArea: formData.targetArea || null,
         userId: user.id,
         createdAt: new Date().toISOString(),
@@ -106,6 +108,16 @@ export default function AlertsPage() {
       toast.success('Alert deleted')
     } catch (error) {
       toast.error('Failed to delete alert')
+    }
+  }
+
+  const resolveAlert = async (id: string) => {
+    try {
+      await blink.db.alerts.update(id, { status: 'resolved' })
+      setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'resolved' } : a))
+      toast.success('Alert marked as resolved')
+    } catch (error) {
+      toast.error('Failed to resolve alert')
     }
   }
 
@@ -158,12 +170,16 @@ export default function AlertsPage() {
           ) : (
             <div className="space-y-4">
               {alerts.map((alert) => (
-                <Card key={alert.id} className="elevation-1 border-border/50 hover:elevation-2 transition-all">
+                <Card key={alert.id} className={cn(
+                  "elevation-1 border-border/50 hover:elevation-2 transition-all",
+                  alert.status === 'resolved' && "opacity-60 bg-muted/20"
+                )}>
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex gap-4">
                         <div className={cn(
                           "h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0",
+                          alert.status === 'resolved' ? "bg-muted text-muted-foreground" :
                           alert.severity === 'emergency' ? "bg-alert-emergency/10 text-alert-emergency" :
                           alert.severity === 'warning' ? "bg-alert-warning/10 text-alert-warning" :
                           "bg-primary/10 text-primary"
@@ -173,8 +189,8 @@ export default function AlertsPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-bold text-foreground">{alert.title}</h3>
-                            <Badge variant={alert.severity === 'emergency' ? 'destructive' : alert.severity === 'warning' ? 'secondary' : 'outline'}>
-                              {alert.severity}
+                            <Badge variant={alert.status === 'resolved' ? 'outline' : alert.severity === 'emergency' ? 'destructive' : alert.severity === 'warning' ? 'secondary' : 'outline'}>
+                              {alert.status === 'resolved' ? 'resolved' : alert.severity}
                             </Badge>
                           </div>
                           <p className="text-foreground/80">{alert.message}</p>
@@ -192,14 +208,26 @@ export default function AlertsPage() {
                           </div>
                         </div>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteAlert(alert.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        {alert.status === 'active' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => resolveAlert(alert.id)}
+                          >
+                            Resolve
+                          </Button>
+                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive self-end"
+                          onClick={() => deleteAlert(alert.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

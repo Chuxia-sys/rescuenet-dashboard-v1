@@ -12,7 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Home, MapPin, Users, Navigation, Phone, Clock, Plus } from 'lucide-react'
+import { Home, MapPin, Users, Navigation, Phone, Clock, Plus, MoreVertical, Trash2 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from 'react-hot-toast'
 
 interface EvacuationCenter {
@@ -95,6 +101,28 @@ export default function EvacuationCentersPage() {
       ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const updateCenterStatus = async (id: string, status: EvacuationCenter['status']) => {
+    try {
+      await blink.db.evacuation_centers.update(id, { status, lastUpdated: new Date().toISOString() })
+      setCenters(prev => prev.map(c => c.id === id ? { ...c, status } : c))
+      toast.success(`Center status updated to ${status}`)
+    } catch (error) {
+      toast.error('Failed to update status')
+    }
+  }
+
+  const deleteCenter = async (id: string) => {
+    try {
+      if (confirm('Are you sure you want to remove this evacuation center?')) {
+        await blink.db.evacuation_centers.delete(id)
+        setCenters(prev => prev.filter(c => c.id !== id))
+        toast.success('Center removed')
+      }
+    } catch (error) {
+      toast.error('Failed to remove center')
     }
   }
 
@@ -277,14 +305,41 @@ export default function EvacuationCentersPage() {
                         {center.status}
                       </Badge>
                     </div>
-                    {center.status === 'open' && (
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-foreground">
-                          {center.currentEvacuees} / {center.capacity}
-                        </p>
-                        <p className="text-xs text-muted-foreground">evacuees</p>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {center.status === 'open' && (
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-foreground">
+                            {center.currentEvacuees} / {center.capacity}
+                          </p>
+                          <p className="text-xs text-muted-foreground">evacuees</p>
+                        </div>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => updateCenterStatus(center.id, 'open')}>
+                            Set as Open
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateCenterStatus(center.id, 'full')}>
+                            Set as Full
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateCenterStatus(center.id, 'closed')}>
+                            Set as Closed
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => deleteCenter(center.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove Center
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   {/* Address */}

@@ -41,14 +41,24 @@ export default function LeafletMap({ markers, activeLayers, onMarkerClick }: Lea
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markersLayerRef = useRef<L.LayerGroup | null>(null)
 
+  // Define Philippines bounds
+  const phBounds: L.LatLngBoundsExpression = [
+    [4.0, 116.0], // Southwest
+    [21.5, 127.0] // Northeast
+  ]
+
   // Initialize map once
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
 
-    // Create map centered on Philippines
+    // Create map centered on Philippines with restricted bounds
     const map = L.map(mapRef.current, {
       center: [12.8797, 121.7740],
       zoom: 6,
+      minZoom: 5,
+      maxZoom: 18,
+      maxBounds: phBounds,
+      maxBoundsViscosity: 1.0,
       zoomControl: true,
       scrollWheelZoom: true,
     })

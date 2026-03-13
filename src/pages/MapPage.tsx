@@ -93,8 +93,8 @@ export default function MapPage() {
     // Disaster markers
     ...disasters.map(d => ({
       id: d.id,
-      lat: d.latitude || (12 + Math.random() * 5),
-      lng: d.longitude || (120 + Math.random() * 6),
+      lat: d.latitude || (8 + Math.random() * 10), // Within PH Lat
+      lng: d.longitude || (118 + Math.random() * 6), // Within PH Lng
       type: 'disaster' as const,
       title: `${d.type} - ${d.location}`,
       description: d.description,
@@ -104,8 +104,8 @@ export default function MapPage() {
     // Evacuation center markers
     ...evacuationCenters.map(c => ({
       id: c.id,
-      lat: c.latitude || (12 + Math.random() * 5),
-      lng: c.longitude || (120 + Math.random() * 6),
+      lat: c.latitude || (8 + Math.random() * 10), // Within PH Lat
+      lng: c.longitude || (118 + Math.random() * 6), // Within PH Lng
       type: 'evacuation' as const,
       title: c.name,
       description: `${c.currentEvacuees}/${c.capacity} evacuees`,
