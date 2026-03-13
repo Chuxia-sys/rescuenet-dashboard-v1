@@ -28,7 +28,15 @@ import {
   Clock,
   Phone,
   UserPlus,
+  MoreVertical,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'react-hot-toast'
 
 interface RescueRequest {
   id: string
@@ -126,6 +134,26 @@ export default function RescueRequestsPage() {
       ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const updateRequestStatus = async (id: string, status: RescueRequest['status']) => {
+    try {
+      await blink.db.rescue_requests.update(id, { status })
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r))
+      toast.success(`Request status updated to ${status}`)
+    } catch (error) {
+      toast.error('Failed to update status')
+    }
+  }
+
+  const deleteRequest = async (id: string) => {
+    try {
+      await blink.db.rescue_requests.delete(id)
+      setRequests(prev => prev.filter(r => r.id !== id))
+      toast.success('Request removed')
+    } catch (error) {
+      toast.error('Failed to remove request')
     }
   }
 
@@ -384,9 +412,33 @@ export default function RescueRequestsPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">View Details</Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          Manage <MoreVertical className="h-3 w-3 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => updateRequestStatus(request.id, 'assigned')}>
+                          Mark as Assigned
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => updateRequestStatus(request.id, 'in-progress')}>
+                          Mark In Progress
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => updateRequestStatus(request.id, 'resolved')}>
+                          Mark Resolved
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => deleteRequest(request.id)}
+                        >
+                          Delete Request
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
                     {request.status === 'pending' && (
-                      <Button size="sm" className="bg-primary hover:bg-primary/90">
+                      <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => updateRequestStatus(request.id, 'assigned')}>
                         Assign Team
                       </Button>
                     )}

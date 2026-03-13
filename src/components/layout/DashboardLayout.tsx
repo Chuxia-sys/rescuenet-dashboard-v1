@@ -16,7 +16,10 @@ import {
   Shield,
   Menu,
   X,
+  Megaphone,
 } from 'lucide-react'
+import { useNotifications } from '@/hooks/useNotifications'
+import { formatDistanceToNow } from 'date-fns'
 
 interface DashboardLayoutProps {
   user: any
@@ -33,6 +36,7 @@ const navigationItems = [
   { id: 'rescue', label: 'Rescue Requests', icon: Radio },
   { id: 'volunteers', label: 'Volunteers', icon: Users },
   { id: 'resources', label: 'Resources', icon: Package },
+  { id: 'alerts', label: 'Emergency Alerts', icon: Megaphone },
 ]
 
 export default function DashboardLayout({
@@ -43,6 +47,9 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user)
 
   const handleLogout = () => {
     blink.auth.logout()
@@ -158,14 +165,99 @@ export default function DashboardLayout({
 
           <div className="flex items-center gap-2">
             {/* Notifications */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative h-10 w-10"
-            >
-              <Bell className="h-5 w-5 text-muted-foreground" />
-              <span className="absolute top-2 right-2 h-2 w-2 bg-alert-emergency rounded-full" />
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-10 w-10"
+                onClick={() => setNotifOpen(!notifOpen)}
+              >
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 h-2 w-2 bg-alert-emergency rounded-full animate-pulse" />
+                )}
+              </Button>
+
+              {notifOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNotifOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-card rounded-lg border border-border shadow-lg z-50 overflow-hidden flex flex-col max-h-[400px]">
+                    <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/30">
+                      <h3 className="text-sm font-semibold">Notifications</h3>
+                      <button 
+                        onClick={markAllAsRead}
+                        className="text-xs text-primary hover:underline font-medium"
+                      >
+                        Mark all as read
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No notifications yet</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-border">
+                          {notifications.map((notif) => (
+                            <div 
+                              key={notif.id}
+                              className={cn(
+                                "p-4 hover:bg-muted/50 transition-colors cursor-pointer",
+                                !notif.read && "bg-primary/5"
+                              )}
+                              onClick={() => {
+                                markAsRead(notif.id)
+                                // Handle navigation based on type if needed
+                              }}
+                            >
+                              <div className="flex gap-3">
+                                <div className={cn(
+                                  "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
+                                  notif.severity === 'emergency' ? "bg-alert-emergency/10 text-alert-emergency" :
+                                  notif.severity === 'warning' ? "bg-alert-warning/10 text-alert-warning" :
+                                  "bg-primary/10 text-primary"
+                                )}>
+                                  {notif.type === 'disaster' ? <AlertTriangle className="h-4 w-4" /> :
+                                   notif.type === 'rescue' ? <Radio className="h-4 w-4" /> :
+                                   notif.type === 'alert' ? <Megaphone className="h-4 w-4" /> :
+                                   <Bell className="h-4 w-4" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={cn("text-sm", !notif.read ? "font-semibold" : "font-medium")}>
+                                    {notif.title}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                                    {notif.message}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    {formatDistanceToNow(notif.timestamp, { addSuffix: true })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-4 py-2 border-t border-border bg-muted/10 text-center">
+                      <button 
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => {
+                          onPageChange('alerts')
+                          setNotifOpen(false)
+                        }}
+                      >
+                        View all alerts
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Profile Dropdown */}
             <div className="relative">

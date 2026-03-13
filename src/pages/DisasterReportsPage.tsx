@@ -29,7 +29,10 @@ import {
   Clock,
   Upload,
   X,
+  ImageIcon,
+  Loader2,
 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 interface Disaster {
   id: string
@@ -67,6 +70,8 @@ export default function DisasterReportsPage() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   
   // Form state
   const [formData, setFormData] = useState({
@@ -82,9 +87,6 @@ export default function DisasterReportsPage() {
 
   const loadDisasters = async () => {
     try {
-      const user = await blink.auth.me()
-      if (!user) return
-
       const data = await blink.db.disasters.list({
         orderBy: { createdAt: 'desc' },
       })
@@ -93,6 +95,32 @@ export default function DisasterReportsPage() {
       console.error('Error loading disasters:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setUploadProgress(0)
+
+    try {
+      const extension = file.name.split('.').pop()
+      const path = `disasters/${Date.now()}.${extension}`
+      
+      const { publicUrl } = await blink.storage.upload(file, path, {
+        onProgress: (percent) => setUploadProgress(percent)
+      })
+
+      setFormData(prev => ({ ...prev, image: publicUrl }))
+      toast.success('Image uploaded successfully')
+    } catch (error) {
+      console.error('Upload failed:', error)
+      toast.error('Failed to upload image')
+    } finally {
+      setUploading(false)
+      setUploadProgress(0)
     }
   }
 
@@ -115,12 +143,22 @@ export default function DisasterReportsPage() {
         updatedAt: new Date().toISOString(),
       })
 
+      // Notify others via realtime
+      await blink.realtime.publish('emergency-alerts', 'disaster-report', {
+        title: `New Incident: ${formData.type}`,
+        message: `A new ${formData.type} incident has been reported at ${formData.location}`,
+        type: 'disaster',
+        severity: 'warning'
+      })
+
+      toast.success('Incident reported successfully')
       // Reset form and close dialog
       setFormData({ type: '', location: '', description: '', image: '' })
       setIsDialogOpen(false)
       loadDisasters()
     } catch (error) {
       console.error('Error creating disaster:', error)
+      toast.error('Failed to submit report')
     } finally {
       setSubmitting(false)
     }
@@ -360,18 +398,56 @@ export default function DisasterReportsPage() {
 
             {/* Image URL */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Image URL (optional)</label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://example.com/image.jpg"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="flex-1"
-                />
-                <Button type="button" variant="outline" size="icon">
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </div>
+              <label className="text-sm font-medium text-foreground">Incident Image</label>
+              
+              {formData.image ? (
+                <div className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
+                  <img 
+                    src={formData.image} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-8 bg-muted/30">
+                  {uploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                      <p className="text-sm font-medium">{uploadProgress}% Uploading...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                      <p className="text-sm text-muted-foreground mb-4">Click to upload or drag and drop</p>
+                      <label className="cursor-pointer">
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <span>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Select Image
+                          </span>
+                        </Button>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Actions */}

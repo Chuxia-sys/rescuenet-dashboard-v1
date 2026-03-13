@@ -20,7 +20,16 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
+  MoreVertical,
+  Minus,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'react-hot-toast'
 
 interface Resource {
   id: string
@@ -43,6 +52,10 @@ export default function ResourcesPage() {
   const [resources, setResources] = useState<Resource[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
+  const [selectedResource, setSelectedResource] = useState<Resource | null>(null)
+  const [updateQuantity, setUpdateQuantity] = useState(0)
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -78,6 +91,38 @@ export default function ResourcesPage() {
       ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdateStock = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedResource) return
+    setSubmitting(true)
+
+    try {
+      const newStock = Math.max(0, updateQuantity)
+      await blink.db.resources.update(selectedResource.id, {
+        currentStock: newStock,
+        lastUpdated: new Date().toISOString()
+      })
+
+      toast.success('Stock updated successfully')
+      setIsUpdateDialogOpen(false)
+      loadResources()
+    } catch (error) {
+      toast.error('Failed to update stock')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const deleteResource = async (id: string) => {
+    try {
+      await blink.db.resources.delete(id)
+      setResources(prev => prev.filter(r => r.id !== id))
+      toast.success('Resource removed')
+    } catch (error) {
+      toast.error('Failed to remove resource')
     }
   }
 
@@ -269,9 +314,33 @@ export default function ResourcesPage() {
                         <p className="text-sm text-muted-foreground capitalize">{resource.category}</p>
                       </div>
                     </div>
-                    <span className={`text-sm font-medium ${status.color}`}>
-                      {status.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${status.color}`}>
+                        {status.label}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedResource(resource)
+                            setUpdateQuantity(resource.currentStock)
+                            setIsUpdateDialogOpen(true)
+                          }}>
+                            Update Stock
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => deleteResource(resource.id)}
+                          >
+                            Delete Resource
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -296,8 +365,17 @@ export default function ResourcesPage() {
                   </div>
 
                   <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      Update Stock
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedResource(resource)
+                        setUpdateQuantity(resource.currentStock)
+                        setIsUpdateDialogOpen(true)
+                      }}
+                    >
+                      Quick Update
                     </Button>
                     <Button variant="outline" size="sm">
                       History
@@ -309,6 +387,79 @@ export default function ResourcesPage() {
           })}
         </div>
       )}
+
+      {/* Update Stock Dialog */}
+      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Update Stock: {selectedResource?.name}</DialogTitle>
+            <DialogDescription>
+              Adjust the current inventory level
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateStock} className="space-y-6 mt-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Current: {selectedResource?.currentStock}</span>
+                <span className="text-sm font-medium">New: {updateQuantity}</span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setUpdateQuantity(prev => Math.max(0, prev - 10))}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  type="number"
+                  value={updateQuantity}
+                  onChange={(e) => setUpdateQuantity(parseInt(e.target.value) || 0)}
+                  className="text-center text-lg font-bold"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setUpdateQuantity(prev => prev + 10)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {[+50, -50, +100, -100].map(val => (
+                  <Button
+                    key={val}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setUpdateQuantity(prev => Math.max(0, prev + val))}
+                  >
+                    {val > 0 ? `+${val}` : val}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setIsUpdateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {submitting ? 'Updating...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Resource Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

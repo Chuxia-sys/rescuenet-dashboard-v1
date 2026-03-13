@@ -9,6 +9,7 @@ import EvacuationCentersPage from './pages/EvacuationCentersPage'
 import RescueRequestsPage from './pages/RescueRequestsPage'
 import VolunteersPage from './pages/VolunteersPage'
 import ResourcesPage from './pages/ResourcesPage'
+import AlertsPage from './pages/AlertsPage'
 
 export default function App() {
   const [user, setUser] = useState<any>(null)
@@ -54,6 +55,8 @@ export default function App() {
         return <VolunteersPage />
       case 'resources':
         return <ResourcesPage />
+      case 'alerts':
+        return <AlertsPage />
       default:
         return <DashboardPage />
     }

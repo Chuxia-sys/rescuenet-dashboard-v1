@@ -29,7 +29,15 @@ import {
   CheckCircle,
   XCircle,
   UserCheck,
+  MoreVertical,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'react-hot-toast'
 
 interface Volunteer {
   id: string
@@ -126,6 +134,26 @@ export default function VolunteersPage() {
       ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const updateVolunteerStatus = async (id: string, status: Volunteer['status']) => {
+    try {
+      await blink.db.volunteers.update(id, { status })
+      setVolunteers(prev => prev.map(v => v.id === id ? { ...v, status } : v))
+      toast.success(`Volunteer status updated to ${status}`)
+    } catch (error) {
+      toast.error('Failed to update status')
+    }
+  }
+
+  const deleteVolunteer = async (id: string) => {
+    try {
+      await blink.db.volunteers.delete(id)
+      setVolunteers(prev => prev.filter(v => v.id !== id))
+      toast.success('Volunteer removed')
+    } catch (error) {
+      toast.error('Failed to remove volunteer')
     }
   }
 
@@ -360,6 +388,31 @@ export default function VolunteersPage() {
                       </Badge>
                     </div>
                   </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => updateVolunteerStatus(volunteer.id, 'available')}>
+                        Set Available
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateVolunteerStatus(volunteer.id, 'on-mission')}>
+                        Set On Mission
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updateVolunteerStatus(volunteer.id, 'offline')}>
+                        Set Offline
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => deleteVolunteer(volunteer.id)}
+                      >
+                        Remove Volunteer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Contact Info */}

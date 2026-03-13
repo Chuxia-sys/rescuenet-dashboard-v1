@@ -12,6 +12,7 @@ import {
   Clock,
   MapPin,
   Plus,
+  Megaphone,
 } from 'lucide-react'
 
 interface Disaster {
@@ -29,6 +30,7 @@ interface Stats {
   rescueRequests: number
   evacuationCenters: number
   activeVolunteers: number
+  activeAlerts: number
 }
 
 export default function DashboardPage() {
@@ -39,6 +41,7 @@ export default function DashboardPage() {
     rescueRequests: 0,
     evacuationCenters: 0,
     activeVolunteers: 0,
+    activeAlerts: 0,
   })
 
   useEffect(() => {
@@ -47,19 +50,22 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
-      const disasterData = await blink.db.disasters.list({
-        orderBy: { createdAt: 'desc' },
-        limit: 10,
-      })
+      const [disasterData, rescueData, centerData, volunteerData, alertData] = await Promise.all([
+        blink.db.disasters.list({ orderBy: { createdAt: 'desc' }, limit: 10 }),
+        blink.db.rescue_requests.list({ where: { status: 'pending' } }),
+        blink.db.evacuation_centers.list({ where: { status: 'open' } }),
+        blink.db.volunteers.list({ where: { status: 'available' } }),
+        blink.db.alerts.list({ limit: 5 }),
+      ])
+
       setDisasters(disasterData as Disaster[])
       
-      // Calculate stats
-      const activeCount = disasterData.filter((d: Disaster) => d.status === 'active' || d.status === 'pending').length
       setStats({
-        activeDisasters: activeCount,
-        rescueRequests: 47,
-        evacuationCenters: 12,
-        activeVolunteers: 234,
+        activeDisasters: disasterData.filter((d: any) => d.status !== 'resolved').length,
+        rescueRequests: rescueData.length,
+        evacuationCenters: centerData.length,
+        activeVolunteers: volunteerData.length,
+        activeAlerts: alertData.length,
       })
     } catch (error) {
       console.error('Error loading data:', error)
@@ -310,7 +316,7 @@ export default function DashboardPage() {
                   { time: '2m ago', action: 'New disaster report', type: 'disaster', icon: AlertTriangle },
                   { time: '5m ago', action: 'Rescue team dispatched', type: 'rescue', icon: Radio },
                   { time: '12m ago', action: 'Volunteer checked in', type: 'volunteer', icon: Users },
-                  { time: '25m ago', action: 'Emergency alert sent', type: 'alert', icon: AlertTriangle },
+                  { time: '25m ago', action: 'Emergency alert sent', type: 'alert', icon: Megaphone },
                   { time: '1h ago', action: 'Evacuation center updated', type: 'evacuation', icon: Home },
                 ].map((activity, index) => (
                   <div key={index} className="flex items-start gap-3">
