@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { blink } from '@/lib/blink'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,9 +33,14 @@ interface Stats {
   activeAlerts: number
 }
 
-export default function DashboardPage() {
+interface DashboardPageProps {
+  onNavigate?: (page: string) => void
+}
+
+export default function DashboardPage({ onNavigate }: DashboardPageProps) {
   const [disasters, setDisasters] = useState<Disaster[]>([])
   const [loading, setLoading] = useState(true)
+  const didLoadRef = useRef(false)
   const [stats, setStats] = useState<Stats>({
     activeDisasters: 0,
     rescueRequests: 0,
@@ -45,6 +50,8 @@ export default function DashboardPage() {
   })
 
   useEffect(() => {
+    if (didLoadRef.current) return
+    didLoadRef.current = true
     loadData()
   }, [])
 
@@ -106,9 +113,24 @@ export default function DashboardPage() {
   }
 
   const quickActions = [
-    { label: 'Report Incident', icon: Plus, color: 'bg-primary hover:bg-primary/90' },
-    { label: 'Request Rescue', icon: Radio, color: 'bg-alert-emergency hover:bg-alert-emergency/90' },
-    { label: 'View Evacuation Centers', icon: Home, color: 'bg-secondary hover:bg-secondary/90' },
+    {
+      label: 'Report Incident',
+      icon: Plus,
+      color: 'bg-primary hover:bg-primary/90',
+      page: 'disasters',
+    },
+    {
+      label: 'Request Rescue',
+      icon: Radio,
+      color: 'bg-destructive hover:bg-destructive/90',
+      page: 'rescue',
+    },
+    {
+      label: 'View Evacuation Centers',
+      icon: Home,
+      color: 'bg-secondary hover:bg-secondary/90',
+      page: 'evacuation',
+    },
   ]
 
   return (
@@ -221,6 +243,7 @@ export default function DashboardPage() {
               <Button
                 key={index}
                 className={`${action.color} text-white`}
+                onClick={() => onNavigate?.(action.page)}
               >
                 <action.icon className="h-4 w-4 mr-2" />
                 {action.label}

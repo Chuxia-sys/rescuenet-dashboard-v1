@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { blink } from '@/lib/blink'
 import { toast } from 'react-hot-toast'
 
@@ -15,10 +15,20 @@ export interface Notification {
 export function useNotifications(user: any) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const lastUserIdRef = useRef<string | null>(null)
+  const realtimeDisabledRef = useRef(false)
+  const loggedRealtimeErrorRef = useRef(false)
 
   // Load notification history (optional - for now let's just use memory)
   useEffect(() => {
     if (!user?.id) return
+    if (realtimeDisabledRef.current) return
+
+    if (lastUserIdRef.current === user.id) {
+      return
+    }
+
+    lastUserIdRef.current = user.id
 
     let mounted = true
     let channel: any = null
@@ -61,7 +71,11 @@ export function useNotifications(user: any) {
         })
 
       } catch (error) {
-        console.error('Failed to connect to realtime:', error)
+        if (!loggedRealtimeErrorRef.current) {
+          console.error('Failed to connect to realtime:', error)
+          loggedRealtimeErrorRef.current = true
+        }
+        realtimeDisabledRef.current = true
       }
     }
 

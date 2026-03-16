@@ -10,9 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { MapPin, Layers, AlertTriangle, Home, Radio, Filter, Clock, Plus } from 'lucide-react'
+import { MapPin, Layers, AlertTriangle, Home, Radio, Filter, Clock, Plus, Navigation, Map as MapIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import LeafletMap from '@/components/map/LeafletMap'
+import DirectionsMap from '@/components/map/DirectionsMap'
 
 interface Disaster {
   id: string
@@ -62,6 +63,10 @@ export default function MapPage() {
   const [evacuationCenters, setEvacuationCenters] = useState<EvacuationCenter[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null)
+  const [focusMarkerId, setFocusMarkerId] = useState<string | null>(null)
+  const [focusCoords, setFocusCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [showDirections, setShowDirections] = useState(false)
+  const [directionDestination, setDirectionDestination] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [activeLayers, setActiveLayers] = useState({
     disasters: true,
     evacuation: true,
@@ -70,6 +75,63 @@ export default function MapPage() {
 
   useEffect(() => {
     loadData()
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = window.localStorage.getItem('evacuation_center_focus')
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed?.id) {
+        setFocusMarkerId(parsed.id)
+        setActiveLayers(prev => ({ ...prev, evacuation: true }))
+      }
+
+      if (parsed?.latitude && parsed?.longitude) {
+        const lat = Number(parsed.latitude)
+        const lng = Number(parsed.longitude)
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setFocusCoords({ lat, lng })
+          setDirectionDestination({
+            lat,
+            lng,
+            name: parsed?.name || 'Evacuation Center',
+          })
+          setShowDirections(true)
+        }
+      }
+    } catch {
+      // ignore parse errors
+    } finally {
+      window.localStorage.removeItem('evacuation_center_focus')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = window.localStorage.getItem('evacuation_center_coords')
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed?.lat && parsed?.lng) {
+        const lat = Number(parsed.lat)
+        const lng = Number(parsed.lng)
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setFocusCoords({ lat, lng })
+          setDirectionDestination({
+            lat,
+            lng,
+            name: 'Evacuation Center',
+          })
+          setShowDirections(true)
+        }
+      }
+    } catch {
+      // ignore parse errors
+    } finally {
+      window.localStorage.removeItem('evacuation_center_coords')
+    }
   }, [])
 
   const loadData = async () => {
@@ -124,6 +186,19 @@ export default function MapPage() {
 
   const handleMarkerClick = (marker: MapMarker) => {
     setSelectedMarker(marker)
+    // If evacuation center, offer directions
+    if (marker.type === 'evacuation') {
+      setDirectionDestination({
+        lat: marker.lat,
+        lng: marker.lng,
+        name: marker.title,
+      })
+    }
+  }
+
+  const startNavigation = (lat: number, lng: number, name: string) => {
+    setDirectionDestination({ lat, lng, name })
+    setShowDirections(true)
   }
 
   return (
@@ -131,12 +206,26 @@ export default function MapPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground font-heading">Interactive Map</h1>
+          <h1 className="text-2xl font-bold text-foreground font-heading">
+            {showDirections ? 'Navigation' : 'Interactive Map'}
+          </h1>
           <p className="text-muted-foreground mt-1">
-            View disaster locations and evacuation centers in real-time
+            {showDirections
+              ? 'Follow turn-by-turn directions to your destination'
+              : 'View disaster locations and evacuation centers in real-time'}
           </p>
         </div>
         <div className="flex gap-2">
+          {showDirections && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDirections(false)}
+            >
+              <MapIcon className="h-4 w-4 mr-2" />
+              Back to Map
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -160,11 +249,20 @@ export default function MapPage() {
       <Card className="elevation-1 border-border/50 overflow-hidden">
         <CardContent className="p-0">
           <div className="h-[500px] lg:h-[600px]">
-            <LeafletMap
-              markers={mapMarkers}
-              activeLayers={activeLayers}
-              onMarkerClick={handleMarkerClick}
-            />
+            {showDirections && directionDestination ? (
+              <DirectionsMap
+                destination={{ lat: directionDestination.lat, lng: directionDestination.lng }}
+                destinationName={directionDestination.name}
+              />
+            ) : (
+              <LeafletMap
+                markers={mapMarkers}
+                activeLayers={activeLayers}
+                focusMarkerId={focusMarkerId}
+                focusCoords={focusCoords}
+                onMarkerClick={handleMarkerClick}
+              />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -328,11 +426,22 @@ export default function MapPage() {
               </div>
 
               <div className="flex gap-2">
-                <Button className="flex-1" variant="outline">
+                {selectedMarker.type === 'evacuation' && (
+                  <Button 
+                    className="flex-1" 
+                    onClick={() => {
+                      startNavigation(selectedMarker.lat, selectedMarker.lng, selectedMarker.title)
+                      setSelectedMarker(null)
+                    }}
+                  >
+                    <Navigation className="h-4 w-4 mr-2" />
+                    Get Directions
+                  </Button>
+                )}
+                <Button variant="outline" className={selectedMarker.type !== 'evacuation' ? 'flex-1' : ''}>
                   <MapPin className="h-4 w-4 mr-2" />
-                  Get Directions
+                  Details
                 </Button>
-                <Button variant="outline">Details</Button>
               </div>
             </div>
           )}

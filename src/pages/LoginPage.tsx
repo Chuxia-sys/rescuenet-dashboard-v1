@@ -5,10 +5,18 @@ import { AlertTriangle, Shield, Radio, Users } from 'lucide-react'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleLogin = async () => {
-    setLoading(true)
-    await blink.auth.login()
+    try {
+      setLoading(true)
+      setError(null)
+      await blink.auth.login()
+    } catch (err) {
+      console.error('Login error:', err)
+      setError('Failed to login. Please try again.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -100,6 +108,12 @@ export default function LoginPage() {
                 'Sign in to Dashboard'
               )}
             </Button>
+
+            {error && (
+              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
           </div>
 
           <div className="relative my-8">

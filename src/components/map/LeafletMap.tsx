@@ -20,6 +20,8 @@ interface LeafletMapProps {
     evacuation: boolean
     rescue: boolean
   }
+  focusMarkerId?: string | null
+  focusCoords?: { lat: number; lng: number } | null
   onMarkerClick?: (marker: Marker) => void
 }
 
@@ -36,10 +38,11 @@ const defaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = defaultIcon
 
-export default function LeafletMap({ markers, activeLayers, onMarkerClick }: LeafletMapProps) {
+export default function LeafletMap({ markers, activeLayers, focusMarkerId, focusCoords, onMarkerClick }: LeafletMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markersLayerRef = useRef<L.LayerGroup | null>(null)
+  const focusedMarkerRef = useRef<string | null>(null)
 
   // Define Philippines bounds
   const phBounds: L.LatLngBoundsExpression = [
@@ -174,8 +177,18 @@ export default function LeafletMap({ markers, activeLayers, onMarkerClick }: Lea
           onMarkerClick(marker)
         }
       })
+
+      if (focusMarkerId && marker.id === focusMarkerId && focusedMarkerRef.current !== marker.id) {
+        focusedMarkerRef.current = marker.id
+        mapInstanceRef.current?.setView([marker.lat, marker.lng], 14, { animate: true })
+        leafletMarker.openPopup()
+      }
+
+      if (focusCoords && focusCoords.lat && focusCoords.lng) {
+        mapInstanceRef.current?.setView([focusCoords.lat, focusCoords.lng], 16, { animate: true })
+      }
     })
-  }, [markers, activeLayers, onMarkerClick])
+  }, [markers, activeLayers, focusMarkerId, focusCoords, onMarkerClick])
 
   return (
     <div 
